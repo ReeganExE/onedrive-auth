@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"embed"
+	"encoding/json"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +15,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed index.html
+var tpl embed.FS
 
 type args struct {
 	OrgID        string
@@ -126,7 +133,37 @@ func getToken(code string, conf *args) []byte {
 	}
 
 	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusOK {
+		var v *AccessToken
+		json.NewDecoder(res.Body).Decode(&v)
+		return renderHTML(v)
+	}
 	body, _ := ioutil.ReadAll(res.Body)
 
 	return body
+}
+
+func renderHTML(v *AccessToken) []byte {
+	tmpl, err := template.ParseFS(tpl, "index.html")
+	if err != nil {
+		panic(err)
+	}
+
+	w := bytes.NewBuffer(nil)
+
+	if err := tmpl.Execute(w, v); err != nil {
+		panic(err)
+	}
+
+	return w.Bytes()
+}
+
+type AccessToken struct {
+	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
+	ExpiresIn    int64  `json:"expires_in"`
+	EXTExpiresIn int64  `json:"ext_expires_in"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }

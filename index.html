@@ -1,0 +1,36 @@
+<html>
+
+<head>
+  <style>
+    textarea {
+      width: 1782px;
+      height: 200px;
+      display: block;
+      resize: none;
+      padding: 9px;
+    }
+
+    .cont {
+      margin: 20px;
+      background-color: rgb(244, 245, 247);
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: rgb(235 236 240) 0px 0px 0px 1.2px;
+    }
+  </style>
+</head>
+
+<body>
+  <div>
+    <div class="cont">
+      <h3>Access token:</h3>
+      <textarea readonly>{{ .AccessToken }}</textarea>
+    </div>
+    <div class="cont">
+      <h3>Refresh token:</h3>
+      <textarea readonly>{{ .RefreshToken }}</textarea>
+    </div>
+  </div>
+</body>
+
+</html>
