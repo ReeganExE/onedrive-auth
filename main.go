@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -103,7 +105,7 @@ func handle(context *cli.Context) error {
 			http.NotFound(w, r)
 		}
 	})
-	exec.Command("open", authURL).Start()
+	openBrowser(authURL)
 	http.ListenAndServe("127.0.0.1:"+conf.CallbackPort, nil)
 	return nil
 }
@@ -145,7 +147,7 @@ func getToken(code string, conf *args) []byte {
 }
 
 func renderHTML(v *AccessToken) []byte {
-	tmpl, err := template.ParseFS(tpl, "index.html")
+	tmpl, err := template.ParseFS(tpl, "result.html")
 	if err != nil {
 		panic(err)
 	}
@@ -157,6 +159,24 @@ func renderHTML(v *AccessToken) []byte {
 	}
 
 	return w.Bytes()
+}
+
+func openBrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 type AccessToken struct {
