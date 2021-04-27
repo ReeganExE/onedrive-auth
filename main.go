@@ -21,6 +21,8 @@ import (
 //go:embed result.html index.html
 var tpl embed.FS
 
+var rtmpl *template.Template
+
 type args struct {
 	OrgID        string
 	ClientID     string
@@ -65,8 +67,12 @@ func main() {
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
+	var err error
+	if rtmpl, err = template.ParseFS(tpl, "result.html"); err != nil {
+		panic(err)
+	}
+
+	if app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -88,7 +94,35 @@ func handle(context *cli.Context) error {
 			if code == "" {
 				httpError(w, 400, "Invalid code")
 			} else {
-				getToken(w, code, conf)
+				res, err := getToken(code, conf)
+				if err != nil {
+					fmt.Println("Unable to make request token", err)
+					httpError(w, 500, "Something went wrong")
+				}
+
+				defer res.Body.Close()
+
+				if res.StatusCode == http.StatusOK {
+					var v *AccessToken
+					json.NewDecoder(res.Body).Decode(&v)
+
+					// render HTML
+					data := struct {
+						Token  *AccessToken
+						Config *args
+					}{
+						v,
+						conf,
+					}
+					if err := rtmpl.Execute(w, data); err != nil {
+						fmt.Println(err)
+						httpError(w, 500, "Something went wrong")
+					}
+				} else {
+					d, _ := io.ReadAll(res.Body)
+					fmt.Println(res.Status, string(d))
+					httpError(w, 500, "Something went wrong")
+				}
 			}
 		} else {
 			http.NotFound(w, r)
@@ -140,10 +174,9 @@ func httpError(w http.ResponseWriter, code int, msg string) {
 	fmt.Fprintf(w, `<!doctype html><html>`+msg+`.<br><a href="/start">Start again</a></html>`)
 }
 
-func getToken(w http.ResponseWriter, code string, conf *args) {
+func getToken(code string, conf *args) (*http.Response, error) {
 	u := "https://login.microsoftonline.com/" + conf.OrgID + "/oauth2/v2.0/token"
 
-	// Query params
 	params := url.Values{}
 	params.Add("client_id", conf.ClientID)
 	params.Add("scope", conf.Scope)
@@ -159,32 +192,7 @@ func getToken(w http.ResponseWriter, code string, conf *args) {
 	req.Header.Add("user-agent", "okhttp/3.6.0")
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusOK {
-		var v *AccessToken
-		json.NewDecoder(res.Body).Decode(&v)
-		renderResultHTML(w, v)
-	} else {
-		d, _ := io.ReadAll(res.Body)
-		fmt.Println(res.Status, string(d))
-		httpError(w, 500, "Something went wrong")
-	}
-}
-
-func renderResultHTML(w io.Writer, v *AccessToken) {
-	tmpl, err := template.ParseFS(tpl, "result.html")
-	if err != nil {
-		panic(err)
-	}
-	if err := tmpl.Execute(w, v); err != nil {
-		panic(err)
-	}
+	return http.DefaultClient.Do(req)
 }
 
 func openBrowser(url string) {
