@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+
+<head>
+  <style>
+    textarea {
+      width: 1782px;
+      height: 200px;
+      display: block;
+      resize: none;
+      padding: 9px;
+    }
+
+    .cont {
+      margin: 20px;
+      background-color: rgb(244, 245, 247);
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: rgb(235 236 240) 0px 0px 0px 1.2px;
+    }
+    input[type="text"] {
+        padding: 6px;
+        width: 500px;
+    }
+
+    form {
+      width: 610px;
+      margin: 0 auto;
+    }
+
+    .btn {
+      width: 120px;
+      appearance: none;
+      background-color: rgb(46, 164, 79);
+      border-bottom-color: rgba(27, 31, 35, 0.15);
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+      border-bottom-style: solid;
+      border-bottom-width: 1px;
+      border-image-outset: 0;
+      border-image-repeat: stretch;
+      border-image-slice: 100%;
+      border-image-source: none;
+      border-image-width: 1;
+      border-left-color: rgba(27, 31, 35, 0.15);
+      border-left-style: solid;
+      border-left-width: 1px;
+      border-right-color: rgba(27, 31, 35, 0.15);
+      border-right-style: solid;
+      border-right-width: 1px;
+      border-top-color: rgba(27, 31, 35, 0.15);
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      border-top-style: solid;
+      border-top-width: 1px;
+      box-shadow: rgba(27, 31, 35, 0.1) 0px 1px 0px 0px, rgba(255, 255, 255, 0.03) 0px 1px 0px 0px inset;
+      box-sizing: border-box;
+      color: rgb(255, 255, 255);
+      cursor: pointer;
+      display: block;
+      font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 20px;
+      overflow-wrap: break-word;
+      padding-bottom: 3px;
+      padding-left: 12px;
+      padding-right: 12px;
+      padding-top: 3px;
+      position: relative;
+      text-decoration-color: rgb(255, 255, 255);
+      text-decoration-line: none;
+      text-decoration-style: solid;
+      text-decoration-thickness: auto;
+      text-size-adjust: 100%;
+      transition-delay: 0s;
+      transition-duration: 0.2s;
+      transition-property: color, background-color, border-color;
+      transition-timing-function: cubic-bezier(0.3, 0, 0.5, 1);
+      user-select: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <form method="POST" action="/authorize">
+    <div class="cont">
+      <h3>OrgID:</h3>
+      <input name="OrgID" type="text" value="{{ .OrgID }}" />
+    </div>
+    <div class="cont">
+      <h3>ClientID:</h3>
+      <input name="ClientID" type="text" value="{{ .ClientID }}" />
+    </div>
+    <div class="cont">
+      <h3>ClientSecret:</h3>
+      <input name="ClientSecret" type="text" value="{{ .ClientSecret }}" />
+    </div>
+    <div style="margin-left: 18px;">
+      <button class="btn" type="submit">Next</button>
+      <small style="
+          font-style: italic;
+          line-height: 25px;
+      ">It will navigate to Microsoft login page. Please make sure you enter correct values.</small>
+    </div>
+  </form>
+</body>
+
+</html>

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-//go:embed index.html
+//go:embed result.html index.html
 var tpl embed.FS
 
 type args struct {
@@ -37,19 +37,16 @@ func main() {
 		Name:   "OneDrive Auth Util",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "org-id",
-				Required: true,
-				EnvVars:  []string{"OD_ORG_ID"},
+				Name:    "org-id",
+				EnvVars: []string{"OD_ORG_ID"},
 			},
 			&cli.StringFlag{
-				Name:     "client-id",
-				Required: true,
-				EnvVars:  []string{"OD_CLIENT_ID"},
+				Name:    "client-id",
+				EnvVars: []string{"OD_CLIENT_ID"},
 			},
 			&cli.StringFlag{
-				Name:     "client-secret",
-				Required: true,
-				EnvVars:  []string{"OD_CLIENT_SECRET"},
+				Name:    "client-secret",
+				EnvVars: []string{"OD_CLIENT_SECRET"},
 			},
 			&cli.StringFlag{
 				Name:    "scope",
@@ -84,33 +81,66 @@ func handle(context *cli.Context) error {
 		CallbackPort: context.String("port"),
 	}
 
-	authURL := "https://login.microsoftonline.com/" +
-		conf.OrgID + "/oauth2/v2.0/authorize?client_id=" +
-		conf.ClientID + "&scope=" + url.QueryEscape(conf.Scope) +
-		"&response_type=code&redirect_uri=" + conf.RedirectURI
-	ux, _ := url.Parse(authURL)
-	authURL = ux.String()
-	log.Println(authURL)
-
+	// Handle auth callback
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			w.WriteHeader(200)
 			code := r.URL.Query().Get("code")
 			if code == "" {
-				http.Error(w, "Invalid authenticate", 400)
+				httpError(w, 400, "Invalid code")
 			} else {
-				w.Write(getToken(code, conf))
+				getToken(w, code, conf)
 			}
 		} else {
 			http.NotFound(w, r)
 		}
 	})
-	openBrowser(authURL)
-	http.ListenAndServe("127.0.0.1:"+conf.CallbackPort, nil)
-	return nil
+
+	// Handle submitsion
+	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+
+		params := url.Values{}
+		params.Add("client_id", r.Form.Get("ClientID"))
+		params.Add("scope", conf.Scope)
+		params.Add("response_type", "code")
+		params.Add("redirect_uri", conf.RedirectURI)
+
+		conf.OrgID = r.Form.Get("OrgID")
+		conf.ClientID = r.Form.Get("ClientID")
+		conf.ClientSecret = r.Form.Get("ClientSecret")
+
+		authURL := "https://login.microsoftonline.com/" + r.Form.Get("OrgID") + "/oauth2/v2.0/authorize?" + params.Encode()
+		http.Redirect(w, r, authURL, http.StatusMovedPermanently)
+	})
+
+	// Starter
+	http.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+		tmpl, err := template.ParseFS(tpl, "index.html")
+		if err != nil {
+			panic(err)
+		}
+		if err := tmpl.Execute(w, conf); err != nil {
+			panic(err)
+		}
+	})
+
+	// Listener
+	n, err := net.Listen("tcp", "127.0.0.1:"+conf.CallbackPort)
+	if err != nil {
+		log.Fatal(err)
+	}
+	openBrowser("http://localhost:" + conf.CallbackPort + "/start")
+
+	return http.Serve(n, nil)
 }
 
-func getToken(code string, conf *args) []byte {
+func httpError(w http.ResponseWriter, code int, msg string) {
+	w.WriteHeader(code)
+	w.Header().Set("content-type", "text/html")
+	fmt.Fprintf(w, `<!doctype html><html>`+msg+`.<br><a href="/start">Start again</a></html>`)
+}
+
+func getToken(w http.ResponseWriter, code string, conf *args) {
 	u := "https://login.microsoftonline.com/" + conf.OrgID + "/oauth2/v2.0/token"
 
 	// Query params
@@ -139,26 +169,22 @@ func getToken(code string, conf *args) []byte {
 	if res.StatusCode == http.StatusOK {
 		var v *AccessToken
 		json.NewDecoder(res.Body).Decode(&v)
-		return renderHTML(v)
+		renderResultHTML(w, v)
+	} else {
+		d, _ := io.ReadAll(res.Body)
+		fmt.Println(res.Status, string(d))
+		httpError(w, 500, "Something went wrong")
 	}
-	body, _ := ioutil.ReadAll(res.Body)
-
-	return body
 }
 
-func renderHTML(v *AccessToken) []byte {
+func renderResultHTML(w io.Writer, v *AccessToken) {
 	tmpl, err := template.ParseFS(tpl, "result.html")
 	if err != nil {
 		panic(err)
 	}
-
-	w := bytes.NewBuffer(nil)
-
 	if err := tmpl.Execute(w, v); err != nil {
 		panic(err)
 	}
-
-	return w.Bytes()
 }
 
 func openBrowser(url string) {
