@@ -1,9 +1,9 @@
 builds:
-    goarch:
-      - amd64
-      - arm64
-      - arm
-    goos:
-      - linux
-      - darwin
-      - windows
+  goos:
+    - linux
+    - darwin
+    - windows
+  goarch:
+    - amd64
+    - arm
+    - arm64
