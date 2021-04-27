@@ -95,7 +95,7 @@ func handle(context *cli.Context) error {
 		}
 	})
 
-	// Handle submitsion
+	// Handle submission
 	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 
